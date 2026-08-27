@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: scoliosis-patient-qa-demo
+    runtime: python
+    plan: free
+    region: singapore
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m llm_pipeline.public_app
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13

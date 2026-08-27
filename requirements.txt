@@ -1,0 +1,11 @@
+pandas>=2.2
+numpy>=2.0
+openpyxl>=3.1
+Pillow>=10.0
+
+# Optional richer statistical/modeling/plotting stack for future expansion.
+scipy>=1.13
+statsmodels>=0.14
+scikit-learn>=1.5
+matplotlib>=3.9
+seaborn>=0.13
