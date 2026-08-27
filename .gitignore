@@ -1,0 +1,16 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.pytest_cache/
+.venv/
+venv/
+.env
+tools/
+
+# Generated analysis artifacts may contain patient-level derived records.
+outputs/
+outputs_llm*/
+
+# Private source workbook. Use data/sample_scoliosis_data.xlsx for GitHub demos.
+脊柱侧弯数据统计表.xlsx
