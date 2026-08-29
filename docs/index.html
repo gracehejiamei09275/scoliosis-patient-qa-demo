@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="基于合成脊柱侧弯数据的探索性疗效问答演示">
+  <title>脊柱侧弯疗效问答 · 合成数据公开版</title>
+  <style>
+    :root {
+      --ink: #182331; --muted: #667386; --line: #d9e1ea; --paper: #fff;
+      --bg: #f3f6f9; --blue: #245b91; --blue-soft: #e9f2fb; --green: #23735e;
+      --orange: #9b551e; --orange-soft: #fff2e5; --shadow: 0 16px 40px rgba(24,35,49,.08);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--ink); background: var(--bg); font: 15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif; }
+    header { color: #fff; background: linear-gradient(125deg,#173957,#2874a9); }
+    .top { max-width: 1180px; margin: auto; padding: 34px 24px; display: flex; gap: 24px; justify-content: space-between; align-items: center; }
+    h1 { margin: 0; font-size: clamp(24px,4vw,36px); line-height: 1.2; }
+    .sub { margin: 10px 0 0; color: #dbeaf6; }
+    .badge { flex: none; padding: 8px 12px; border: 1px solid #8db8d7; border-radius: 999px; background: rgba(255,255,255,.1); font-size: 13px; }
+    main { max-width: 1180px; margin: auto; padding: 24px; }
+    .notice { margin-bottom: 18px; padding: 14px 16px; border: 1px solid #efc499; border-radius: 10px; color: #6c3b17; background: var(--orange-soft); }
+    .privacy { margin-bottom: 18px; color: var(--green); font-size: 14px; }
+    .layout { display: grid; grid-template-columns: minmax(300px,400px) minmax(0,1fr); gap: 18px; align-items: start; }
+    .card { padding: 22px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); box-shadow: var(--shadow); }
+    h2 { margin: 0 0 16px; font-size: 19px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+    label { display: block; margin-bottom: 5px; color: var(--muted); font-size: 13px; font-weight: 600; }
+    input,select,textarea { width: 100%; padding: 10px 11px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); font: inherit; }
+    input:focus,select:focus,textarea:focus { outline: 3px solid rgba(36,91,145,.14); border-color: var(--blue); }
+    textarea { min-height: 105px; resize: vertical; }
+    .field { margin-bottom: 13px; }
+    .full { grid-column: 1/-1; }
+    .actions,.examples { display: flex; flex-wrap: wrap; gap: 9px; }
+    button { padding: 10px 14px; border: 0; border-radius: 8px; cursor: pointer; font-weight: 700; }
+    .primary { color: #fff; background: var(--blue); }
+    .secondary { color: var(--blue); background: var(--blue-soft); }
+    .example { padding: 7px 10px; color: #39546e; background: #eef3f7; font-size: 12px; }
+    .answer { min-height: 170px; margin-top: 18px; padding: 18px; border-left: 4px solid var(--blue); border-radius: 8px; background: #f7fafc; white-space: pre-wrap; }
+    .metrics { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-top: 14px; }
+    .metric { padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+    .metric strong { display: block; color: var(--blue); font-size: 20px; }
+    table { width: 100%; margin-top: 14px; border-collapse: collapse; font-size: 13px; }
+    th,td { padding: 8px; border-bottom: 1px solid var(--line); text-align: left; }
+    footer { max-width: 1180px; margin: auto; padding: 10px 24px 34px; color: var(--muted); font-size: 13px; }
+    @media(max-width:800px){ .layout{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}.grid{grid-template-columns:1fr}.metrics{grid-template-columns:1fr} }
+  </style>
+</head>
+<body>
+  <header><div class="top"><div><h1>脊柱侧弯疗效问答</h1><p class="sub">合成数据公开演示 · 探索性 Ridge 模型与规则问答</p></div><div class="badge">GitHub Pages · 浏览器本地计算</div></div></header>
+  <main>
+    <div class="notice"><strong>重要：</strong>本页面仅作课程与数据科学演示，不提供诊断或治疗建议。预测误差较大，不能据此选择、停止或调整治疗；请咨询有资质的临床医生。</div>
+    <div class="privacy">隐私说明：本页面只包含合成数据生成的模型参数。你填写的内容仅在当前浏览器计算，不会上传、保存或发送给第三方。</div>
+    <div class="layout">
+      <section class="card">
+        <h2>患者参数</h2>
+        <div class="grid">
+          <div class="field"><label for="age">年龄</label><input id="age" type="number" min="1" max="29" step="1" value="13"></div>
+          <div class="field"><label for="sex">性别</label><select id="sex"><option value="female">女</option><option value="male">男</option></select></div>
+          <div class="field"><label for="bone">骨龄阶段（0–10）</label><input id="bone" type="number" min="0" max="10" step="1" value="4"></div>
+          <div class="field"><label for="pre">干预前 Cobb 角（°）</label><input id="pre" type="number" min="1" max="90" step="0.1" value="28"></div>
+          <div class="field"><label for="months">干预周期（月）</label><input id="months" type="number" min="1" max="60" step="1" value="8"></div>
+          <div class="field"><label for="post">干预后 Cobb 角（可选）</label><input id="post" type="number" min="0" max="90" step="0.1" placeholder="未复查可留空"></div>
+          <div class="field full"><label for="treatment">方案</label><select id="treatment"><option value="brace_training">支具 + 训练</option><option value="brace_only">纯支具</option></select></div>
+          <div class="field full" id="trainingWrap"><label for="training">每周训练时间（小时）</label><input id="training" type="number" min="0" max="40" step="0.5" value="3"></div>
+        </div>
+        <div class="actions"><button class="secondary" id="sample">恢复示例</button></div>
+      </section>
+      <section class="card">
+        <h2>向数据模型提问</h2>
+        <div class="field"><label for="question">问题</label><textarea id="question">我13岁，支具加训练8个月，大概可能改善多少？</textarea></div>
+        <div class="examples">
+          <button class="example" data-q="大概可能改善多少？">预测改善量</button>
+          <button class="example" data-q="总体研究结论是什么？">总体结果</button>
+          <button class="example" data-q="PSM倾向评分是什么意思？">解释 PSM</button>
+          <button class="example" data-q="Cobb改善量怎么理解？">解释 Cobb</button>
+        </div>
+        <div class="actions" style="margin-top:14px"><button class="primary" id="ask">生成回答</button></div>
+        <div id="answer" class="answer" aria-live="polite">填写参数并点击“生成回答”。</div>
+        <div id="metrics" class="metrics" hidden></div>
+        <div id="contrib"></div>
+      </section>
+    </div>
+  </main>
+  <footer>模型基于 102 条合成示例记录（101 条结局完整记录）。代码与模型逻辑公开可审查。探索性；不是临床诊断/建议；样本量限制；非随机分组；需咨询医生。</footer>
+  <script>
+    const model = {
+      features:["age","sex_female","bone_age_stage","pre_cobb","intervention_months","treatment_binary","training_exposure_hours","treatment_x_pre_cobb","duration_x_pre_cobb"],
+      intercept:5.387128712871288,
+      coef:{age:.8724163457200684,sex_female:-.3935553274014467,bone_age_stage:-.10463263342529956,pre_cobb:.09675476559391913,intervention_months:-.1308860596707858,treatment_binary:.16707793921288777,training_exposure_hours:.37666504366485,treatment_x_pre_cobb:.18198576833479313,duration_x_pre_cobb:.11678912313855855},
+      mean:{age:12.712871287128714,sex_female:.7029702970297029,bone_age_stage:2.1881188118811883,pre_cobb:22.294059405940594,intervention_months:9.871287128712872,treatment_binary:.27722772277227725,training_exposure_hours:1.0554455445544555,treatment_x_pre_cobb:6.903960396039603,duration_x_pre_cobb:218.53267326732671},
+      std:{age:1.9464953714195548,sex_female:.4569497330381912,bone_age_stage:1.1749267623025814,pre_cobb:6.534975539617699,intervention_months:3.075496792636516,treatment_binary:.44762988338444815,training_exposure_hours:1.9314733127655928,treatment_x_pre_cobb:11.65527051809252,duration_x_pre_cobb:91.8512283008692},
+      metrics:{rmse:3.8145358804,mae:3.1479496461,r2:.0328356363}
+    };
+    const safety = "安全边界：探索性；不是临床诊断/建议；样本量限制；非随机分组；需咨询医生。";
+    const $ = id => document.getElementById(id);
+    function patient(){
+      const p={age:+$('age').value,sex:$('sex').value,bone_age_stage:+$('bone').value,pre_cobb:+$('pre').value,intervention_months:+$('months').value,treatment_group:$('treatment').value,weekly_training_hours:+$('training').value};
+      const rules=[[p.age>0&&p.age<30,'年龄应在 1–29 岁之间'],[p.bone_age_stage>=0&&p.bone_age_stage<=10,'骨龄阶段应在 0–10 之间'],[p.pre_cobb>0&&p.pre_cobb<=90,'Cobb 角应在 0–90°之间'],[p.intervention_months>0&&p.intervention_months<=60,'干预周期应在 1–60 个月之间'],[p.weekly_training_hours>=0&&p.weekly_training_hours<=40,'训练时间应在 0–40 小时之间']];
+      for(const [ok,msg] of rules) if(!ok) throw new Error(msg);
+      return p;
+    }
+    function predict(p){
+      const t=p.treatment_group==='brace_training'?1:0;
+      const f={age:p.age,sex_female:p.sex==='female'?1:0,bone_age_stage:p.bone_age_stage,pre_cobb:p.pre_cobb,intervention_months:p.intervention_months,treatment_binary:t,training_exposure_hours:t?p.weekly_training_hours:0,treatment_x_pre_cobb:t*p.pre_cobb,duration_x_pre_cobb:p.intervention_months*p.pre_cobb};
+      let value=model.intercept, contributions=[];
+      for(const key of model.features){const c=model.coef[key]*((f[key]-model.mean[key])/model.std[key]);value+=c;contributions.push({key,value:c});}
+      contributions.sort((a,b)=>Math.abs(b.value)-Math.abs(a.value)); return {value,contributions};
+    }
+    function predictionAnswer(p){
+      const result=predict(p), v=result.value, lo=v-model.metrics.rmse, hi=v+model.metrics.rmse;
+      let actual=''; const post=$('post').value.trim();
+      if(post!==''){const change=p.pre_cobb-(+post);actual=`\n按你填写的复查值，实际改善量为 ${change.toFixed(2)}°，${change>=5?'达到':'未达到'} 5° 阈值。`;}
+      const label=p.treatment_group==='brace_training'?'支具 + 训练':'纯支具';
+      $('metrics').hidden=false; $('metrics').innerHTML=`<div class="metric"><span>预测改善</span><strong>${v.toFixed(2)}°</strong></div><div class="metric"><span>粗略范围</span><strong>${lo.toFixed(2)}–${hi.toFixed(2)}°</strong></div><div class="metric"><span>交叉验证 RMSE</span><strong>${model.metrics.rmse.toFixed(2)}°</strong></div>`;
+      $('contrib').innerHTML='<table><thead><tr><th>主要模型贡献项</th><th>贡献（°）</th></tr></thead><tbody>'+result.contributions.slice(0,3).map(x=>`<tr><td>${x.key}</td><td>${x.value>=0?'+':''}${x.value.toFixed(2)}</td></tr>`).join('')+'</tbody></table>';
+      return `根据合成数据训练的探索性 Ridge 模型，在“${label}”参数下，预测 Cobb 改善量约为 ${v.toFixed(2)}°；${v>=5?'模型预测达到':'模型预测未达到'} 5° 改善阈值。\n\n粗略误差范围约为 ${lo.toFixed(2)}–${hi.toFixed(2)}°（预测值 ± RMSE），这不是医学置信区间。模型 R²=${model.metrics.r2.toFixed(3)}，解释能力较弱。${actual}\n\n${safety}`;
+    }
+    function answer(){
+      $('metrics').hidden=true; $('contrib').innerHTML=''; const q=$('question').value.trim(); if(!q){$('answer').textContent='请先输入问题。';return;}
+      const unsafe=['应该选','该选','推荐治疗','治疗方案','怎么治疗','要不要做','能不能停','可以停','替代医生','诊断'];
+      if(unsafe.some(x=>q.includes(x))){$('answer').textContent=`这个问题涉及个体化诊断或治疗选择，我不能给出具体医疗建议。系统只能解释合成数据项目中的探索性模型与统计结果。\n\n${safety}`;return;}
+      try{
+        if(/总体|研究结论|统计|显著|哪组更好|psm结果/i.test(q)) $('answer').textContent=`合成样本中，纯支具组平均改善约 4.84°，支具 + 训练组约 6.83°，原始均值差约 1.99°。协变量调整后的治疗系数约 1.53°；PSM ATT 约 1.44°（28 对匹配）。这些是探索性结果，不能证明某种方案具有确定因果优势。\n\n${safety}`;
+        else if(/psm|倾向评分/i.test(q)) $('answer').textContent=`PSM 倾向评分匹配会把基线特征相似的两类样本配对，以减少已观测基线差异造成的偏倚。它不能消除未观测混杂，也不能证明因果关系。\n\n${safety}`;
+        else if(/cobb|改善量|干预前|干预后/i.test(q) && !/预测|可能|预计|多少/.test(q)) {$('answer').textContent=`本项目定义：Cobb 改善量 = 干预前 Cobb 角 − 干预后 Cobb 角。数值越大表示角度下降越多；改善量 ≥5° 时标记为 improved_5deg。\n\n${safety}`;}
+        else $('answer').textContent=predictionAnswer(patient());
+      }catch(e){$('answer').textContent='参数错误：'+e.message;}
+    }
+    $('treatment').addEventListener('change',()=>{$('trainingWrap').style.display=$('treatment').value==='brace_training'?'block':'none';});
+    $('ask').addEventListener('click',answer);
+    document.querySelectorAll('[data-q]').forEach(b=>b.addEventListener('click',()=>{$('question').value=b.dataset.q;answer();}));
+    $('sample').addEventListener('click',()=>{Object.assign($('age'),{value:13});$('sex').value='female';$('bone').value=4;$('pre').value=28;$('months').value=8;$('post').value='';$('treatment').value='brace_training';$('training').value=3;$('question').value='我13岁，支具加训练8个月，大概可能改善多少？';$('trainingWrap').style.display='block';});
+  </script>
+</body>
+</html>
