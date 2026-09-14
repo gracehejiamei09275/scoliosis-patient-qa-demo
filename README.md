@@ -7,7 +7,7 @@
 ## 快速运行
 
 ```bash
-/Users/wangzeyu/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m src.pipeline
+python3 -m src.pipeline
 ```
 
 运行后会生成：
@@ -55,5 +55,5 @@
 ## 测试
 
 ```bash
-/Users/wangzeyu/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 tests/test_pipeline.py
+python3 tests/test_pipeline.py
 ```
