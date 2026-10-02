@@ -61,7 +61,7 @@ python3 -m src.pipeline
 - 密码使用 PBKDF2-SHA256 加盐哈希存储，服务端只保存会话令牌的 SHA-256 摘要。
 - Render 部署通过 `DATABASE_URL` 连接 PostgreSQL；本地开发未配置该变量时使用 SQLite。
 
-部署时必须在 Render 的 `ADMIN_EMAILS` 环境变量中填写管理员邮箱；多个邮箱用英文逗号分隔。该邮箱注册或再次登录后会获得管理员权限。GitHub Pages 前端默认调用 `https://scoliosis-patient-qa-demo.onrender.com`，如 Render 服务域名不同，请修改 `docs/index.html` 中的 `api-base`。
+Render 的 `ADMIN_EMAILS` 环境变量用于指定管理员邮箱；多个邮箱用英文逗号分隔。当前管理员邮箱为 `gracehejiamei@gmail.com`，该邮箱注册或再次登录后会获得管理员权限。GitHub Pages 前端默认调用 `https://scoliosis-patient-qa-demo.onrender.com`，如 Render 服务域名不同，请修改 `docs/index.html` 中的 `api-base`。
 
 ## 测试
 
