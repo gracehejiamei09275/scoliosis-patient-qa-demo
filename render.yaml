@@ -18,7 +18,7 @@ services:
       - key: AUTH_REQUIRED
         value: "1"
       - key: ADMIN_EMAILS
-        sync: false
+        value: gracehejiamei@gmail.com
       - key: ALLOWED_ORIGINS
         value: https://gracehejiamei09275.github.io
 
@@ -28,4 +28,3 @@ databases:
     region: singapore
     databaseName: scoliosis_patient_app
     user: scoliosis_patient_app
-
