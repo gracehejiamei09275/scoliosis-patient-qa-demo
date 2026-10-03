@@ -52,8 +52,20 @@ python3 -m src.pipeline
 - `每周训练时间（小时）` 只在“支具+训练组”记录；建模中另建 `training_exposure_hours` 表示训练暴露强度，纯支具组置 0 仅用于工程特征，不代表真实记录了 0 小时训练。
 - 若本地缺少 `scipy/sklearn/statsmodels/matplotlib/seaborn`，项目仍可运行：统计检验、PSM、Ridge 回归和 PNG 图表都有轻量 fallback 实现。
 
+## 账号、数据保存与管理员后台
+
+公开网页现支持邮箱注册与登录。登录后的每次问答都会保存到数据库，并与用户账号关联：
+
+- 普通用户只能读取自己的历史记录。
+- 管理员可以查看注册人数、近 7 日活跃人数、用户列表和最近评估参数。
+- 密码使用 PBKDF2-SHA256 加盐哈希存储，服务端只保存会话令牌的 SHA-256 摘要。
+- Render 部署通过 `DATABASE_URL` 连接 PostgreSQL；本地开发未配置该变量时使用 SQLite。
+
+Render 的 `ADMIN_EMAILS` 环境变量用于指定管理员邮箱；多个邮箱用英文逗号分隔。当前管理员邮箱为 `gracehejiamei@gmail.com`，该邮箱注册或再次登录后会获得管理员权限。GitHub Pages 前端默认调用 `https://scoliosis-patient-qa-demo.onrender.com`，如 Render 服务域名不同，请修改 `docs/index.html` 中的 `api-base`。
+
 ## 测试
 
 ```bash
 python3 tests/test_pipeline.py
 ```
+
