@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="脊柱侧弯疗效问答与个人记录演示">
-  <meta name="api-base" content="https://scoliosis-patient-qa-demo.onrender.com">
+  <meta name="supabase-url" content="https://pygxvtpenwmibpcmmrpj.supabase.co">
+  <meta name="supabase-key" content="sb_publishable_1EAJasKOLGhqeyGeGkXyuA_t0NfwDNW">
   <title>脊柱侧弯疗效问答</title>
   <style>
     :root{--ink:#182331;--muted:#667386;--line:#d9e1ea;--paper:#fff;--bg:#f3f6f9;--blue:#245b91;--blue2:#173957;--blue-soft:#e9f2fb;--green:#23735e;--red:#a83b37;--orange:#8a4a1b;--orange-soft:#fff2e5;--shadow:0 16px 40px rgba(24,35,49,.08)}
@@ -84,32 +85,41 @@
     </div>
   </main>
   <footer>模型基于合成示例记录，仅作探索性演示。账号及健康参数属于敏感数据，请勿共享登录凭证。</footer>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    const configuredApi = document.querySelector('meta[name="api-base"]').content.replace(/\/$/, '');
-    const API_BASE = location.hostname.endsWith('github.io') ? configuredApi : '';
+    const SUPABASE_URL = document.querySelector('meta[name="supabase-url"]').content;
+    const SUPABASE_KEY = document.querySelector('meta[name="supabase-key"]').content;
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const ADMIN_EMAIL = 'gracehejiamei@gmail.com';
     const $ = id => document.getElementById(id);
-    let token = localStorage.getItem('scoliosis_token') || '';
     let currentUser = null;
+
+    const MODEL={
+      intercept:5.387128712871288,
+      features:['age','sex_female','bone_age_stage','pre_cobb','intervention_months','treatment_binary','training_exposure_hours','treatment_x_pre_cobb','duration_x_pre_cobb'],
+      coefficients:{age:.8724163457200694,sex_female:-.39355532740144644,bone_age_stage:-.10463263342529942,pre_cobb:.0967547655939186,intervention_months:-.13088605967078615,treatment_binary:.1670779392128877,training_exposure_hours:.3766650436648498,treatment_x_pre_cobb:.18198576833479285,duration_x_pre_cobb:.11678912313855948},
+      mean:{age:12.712871287128714,sex_female:.7029702970297029,bone_age_stage:2.1881188118811883,pre_cobb:22.294059405940594,intervention_months:9.871287128712872,treatment_binary:.27722772277227725,training_exposure_hours:1.0554455445544555,treatment_x_pre_cobb:6.903960396039603,duration_x_pre_cobb:218.53267326732671},
+      std:{age:1.9464953714195548,sex_female:.4569497330381912,bone_age_stage:1.1749267623025814,pre_cobb:6.534975539617699,intervention_months:3.075496792636516,treatment_binary:.44762988338444815,training_exposure_hours:1.9314733127655928,treatment_x_pre_cobb:11.65527051809252,duration_x_pre_cobb:91.8512283008692},
+      metrics:{model:'ridge',alpha:30,mae:3.1479496461150003,rmse:3.8145358803789837,r2:.032835636349490716}
+    };
 
     function escapeHtml(value){return String(value??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
     function setStatus(id,message,error=false){const el=$(id);el.textContent=message;el.className=error?'status error':'status';}
-    async function api(path,options={}){
-      const headers={'Content-Type':'application/json',...(options.headers||{})};
-      if(token) headers.Authorization=`Bearer ${token}`;
-      const response=await fetch(API_BASE+path,{...options,headers});
-      let data={};try{data=await response.json();}catch(_e){}
-      if(!response.ok) throw new Error(data.error||`请求失败（${response.status}）`);
-      return data;
-    }
     function selectAuthTab(name){document.querySelectorAll('[data-auth-tab]').forEach(b=>b.classList.toggle('active',b.dataset.authTab===name));$('loginForm').classList.toggle('hidden',name!=='login');$('registerForm').classList.toggle('hidden',name!=='register');setStatus('authStatus','');}
-    function showLoggedOut(){currentUser=null;token='';localStorage.removeItem('scoliosis_token');$('authPanel').classList.remove('hidden');$('memberArea').classList.add('hidden');$('openAuth').classList.remove('hidden');$('logout').classList.add('hidden');$('userLabel').classList.add('hidden');}
+    function showLoggedOut(){currentUser=null;$('authPanel').classList.remove('hidden');$('memberArea').classList.add('hidden');$('openAuth').classList.remove('hidden');$('logout').classList.add('hidden');$('userLabel').classList.add('hidden');$('adminPanel').classList.add('hidden');}
     async function showLoggedIn(user){currentUser=user;$('authPanel').classList.add('hidden');$('memberArea').classList.remove('hidden');$('openAuth').classList.add('hidden');$('logout').classList.remove('hidden');$('userLabel').textContent=user.display_name;$('userLabel').classList.remove('hidden');$('adminPanel').classList.toggle('hidden',user.role!=='admin');await loadHistory();if(user.role==='admin') await loadAdmin();}
 
-    $('loginForm').addEventListener('submit',async event=>{event.preventDefault();setStatus('authStatus','正在登录…');try{const data=await api('/api/login',{method:'POST',body:JSON.stringify({email:$('loginEmail').value,password:$('loginPassword').value})});token=data.token;localStorage.setItem('scoliosis_token',token);await showLoggedIn(data.user);}catch(error){setStatus('authStatus',error.message,true);}});
-    $('registerForm').addEventListener('submit',async event=>{event.preventDefault();setStatus('authStatus','正在创建账号…');try{const data=await api('/api/register',{method:'POST',body:JSON.stringify({display_name:$('registerName').value,email:$('registerEmail').value,password:$('registerPassword').value,consent:$('consent').checked})});token=data.token;localStorage.setItem('scoliosis_token',token);await showLoggedIn(data.user);}catch(error){setStatus('authStatus',error.message,true);}});
+    async function profileFor(authUser){
+      const {data,error}=await db.from('profiles').select('id,email,display_name,role,created_at,last_active_at').eq('id',authUser.id).single();
+      if(error)throw error;
+      await db.from('profiles').update({last_active_at:new Date().toISOString()}).eq('id',authUser.id);
+      return data;
+    }
+    $('loginForm').addEventListener('submit',async event=>{event.preventDefault();setStatus('authStatus','正在登录…');try{const {data,error}=await db.auth.signInWithPassword({email:$('loginEmail').value.trim(),password:$('loginPassword').value});if(error)throw error;await showLoggedIn(await profileFor(data.user));}catch(error){setStatus('authStatus',error.message,true);}});
+    $('registerForm').addEventListener('submit',async event=>{event.preventDefault();setStatus('authStatus','正在创建账号…');try{if(!$('consent').checked)throw new Error('请先同意数据保存说明。');const {data,error}=await db.auth.signUp({email:$('registerEmail').value.trim(),password:$('registerPassword').value,options:{emailRedirectTo:location.origin+location.pathname,data:{display_name:$('registerName').value.trim(),consent:true}}});if(error)throw error;if(!data.session){selectAuthTab('login');setStatus('authStatus','注册成功。请打开邮箱中的确认邮件，确认后再登录。');return;}await showLoggedIn(await profileFor(data.user));}catch(error){setStatus('authStatus',error.message,true);}});
     document.querySelectorAll('[data-auth-tab]').forEach(b=>b.addEventListener('click',()=>selectAuthTab(b.dataset.authTab)));
     $('openAuth').addEventListener('click',()=>{$('authPanel').scrollIntoView({behavior:'smooth'});});
-    $('logout').addEventListener('click',async()=>{try{await api('/api/logout',{method:'POST',body:'{}'});}catch(_e){}showLoggedOut();});
+    $('logout').addEventListener('click',async()=>{await db.auth.signOut();showLoggedOut();});
 
     function patient(){
       const p={age:+$('age').value,sex:$('sex').value,bone_age_stage:+$('bone').value,pre_cobb:+$('pre').value,intervention_months:+$('months').value,treatment_group:$('treatment').value,weekly_training_hours:+$('training').value};
@@ -117,15 +127,28 @@
       const rules=[[p.age>0&&p.age<30,'年龄应在 1–29 岁之间'],[p.bone_age_stage>=0&&p.bone_age_stage<=10,'骨龄阶段应在 0–10 之间'],[p.pre_cobb>0&&p.pre_cobb<=90,'Cobb 角应在 0–90°之间'],[p.intervention_months>0&&p.intervention_months<=60,'干预周期应在 1–60 个月之间'],[p.weekly_training_hours>=0&&p.weekly_training_hours<=40,'训练时间应在 0–40 小时之间']];for(const[ok,msg]of rules)if(!ok)throw new Error(msg);return p;
     }
     $('treatment').addEventListener('change',()=>{const training=$('treatment').value==='brace_training';$('trainingWrap').style.display=training?'block':'none';if(!training)$('training').value=0;});
-    $('ask').addEventListener('click',async()=>{const button=$('ask');button.disabled=true;setStatus('qaStatus','正在生成并保存…');try{const data=await api('/api/qa',{method:'POST',body:JSON.stringify({question:$('question').value.trim(),patient:patient(),llm_provider:'mock'})});$('answer').textContent=data.answer||'';renderMetrics(data.prediction);setStatus('qaStatus','已保存到你的账号。');await loadHistory();}catch(error){setStatus('qaStatus',error.message,true);}finally{button.disabled=false;}});
+    function predict(p){
+      const treatment=p.treatment_group==='brace_training'?1:0;
+      const f={age:p.age,sex_female:p.sex==='female'?1:0,bone_age_stage:p.bone_age_stage,pre_cobb:p.pre_cobb,intervention_months:p.intervention_months,treatment_binary:treatment,training_exposure_hours:treatment?p.weekly_training_hours:0,treatment_x_pre_cobb:treatment*p.pre_cobb,duration_x_pre_cobb:p.intervention_months*p.pre_cobb};
+      let value=MODEL.intercept;MODEL.features.forEach(name=>{value+=MODEL.coefficients[name]*((f[name]-MODEL.mean[name])/MODEL.std[name]);});
+      return {predicted_cobb_change:value,predicted_improved_5deg:value>=5,model_metrics:MODEL.metrics,prediction_interval_note:`粗略误差范围约为 ${(value-MODEL.metrics.rmse).toFixed(2)} 到 ${(value+MODEL.metrics.rmse).toFixed(2)} 度（预测值 ± ${MODEL.metrics.rmse.toFixed(2)}°），不是医学置信区间。`};
+    }
+    function composeAnswer(p,prediction){return `基于 101 条合成示例记录建立的探索性模型，预测 Cobb 角改善约为 ${prediction.predicted_cobb_change.toFixed(2)}°。\n\n${prediction.prediction_interval_note}\n\n该结果误差较大，只能用于数据演示，不能判断个人疗效，也不能用于选择、停止或调整治疗。请由脊柱专科医生结合影像、骨龄、生长发育和依从性进行评估。`;}
+    $('ask').addEventListener('click',async()=>{const button=$('ask');button.disabled=true;setStatus('qaStatus','正在生成并保存…');try{const p=patient();const prediction=predict(p);const answer=composeAnswer(p,prediction);const question=$('question').value.trim();if(!question)throw new Error('请输入问题。');const {error}=await db.from('assessments').insert({user_id:currentUser.id,question,patient:p,answer,prediction});if(error)throw error;$('answer').textContent=answer;renderMetrics(prediction);setStatus('qaStatus','已保存到你的账号。');await loadHistory();}catch(error){setStatus('qaStatus',error.message,true);}finally{button.disabled=false;}});
     function renderMetrics(prediction){if(!prediction){$('metrics').classList.add('hidden');return;}$('metrics').classList.remove('hidden');const value=prediction.predicted_cobb_change;const rmse=prediction.model_metrics?.rmse;$('metrics').innerHTML=`<div class="metric"><span>预测改善</span><strong>${Number(value).toFixed(2)}°</strong></div><div class="metric"><span>5° 阈值</span><strong>${prediction.predicted_improved_5deg?'达到':'未达到'}</strong></div><div class="metric"><span>模型 RMSE</span><strong>${Number(rmse).toFixed(2)}°</strong></div>`;}
 
-    async function loadHistory(){try{const data=await api('/api/history');if(!data.items.length){$('history').innerHTML='<span class="muted">暂无记录。</span>';return;}$('history').innerHTML=data.items.map(item=>`<article class="history-item"><h3>${escapeHtml(item.question)}</h3><div class="timestamp">${escapeHtml(new Date(item.created_at).toLocaleString())}</div><p>${escapeHtml(item.answer)}</p></article>`).join('');}catch(error){$('history').textContent=error.message;}}
+    async function loadHistory(){try{const {data,error}=await db.from('assessments').select('id,question,answer,prediction,created_at').order('created_at',{ascending:false}).limit(50);if(error)throw error;if(!data.length){$('history').innerHTML='<span class="muted">暂无记录。</span>';return;}$('history').innerHTML=data.map(item=>`<article class="history-item"><h3>${escapeHtml(item.question)}</h3><div class="timestamp">${escapeHtml(new Date(item.created_at).toLocaleString())}</div><p>${escapeHtml(item.answer)}</p></article>`).join('');}catch(error){$('history').textContent=error.message;}}
     $('refreshHistory').addEventListener('click',loadHistory);
-    async function loadAdmin(){try{const[stats,users,assessments]=await Promise.all([api('/api/admin/stats'),api('/api/admin/users'),api('/api/admin/assessments')]);$('registeredUsers').textContent=stats.registered_users;$('assessmentCount').textContent=stats.assessments;$('activeUsers').textContent=stats.active_users_7d;$('usersBody').innerHTML=users.items.map(u=>`<tr><td>${escapeHtml(u.display_name)}</td><td>${escapeHtml(u.email)}</td><td>${escapeHtml(u.role)}</td><td>${escapeHtml(new Date(u.created_at).toLocaleString())}</td><td>${u.assessment_count}</td><td>${u.last_assessment_at?escapeHtml(new Date(u.last_assessment_at).toLocaleString()):'—'}</td></tr>`).join('');$('assessmentsBody').innerHTML=assessments.items.map(a=>`<tr><td>${escapeHtml(new Date(a.created_at).toLocaleString())}</td><td>${escapeHtml(a.display_name)}<br><span class="muted">${escapeHtml(a.email)}</span></td><td class="patient-cell">年龄 ${escapeHtml(a.patient.age)}；${a.patient.sex==='female'?'女':'男'}；干预前 ${escapeHtml(a.patient.pre_cobb)}°；周期 ${escapeHtml(a.patient.intervention_months)} 月；方案 ${a.patient.treatment_group==='brace_training'?'支具+训练':'纯支具'}</td><td class="patient-cell">${escapeHtml(a.question)}</td><td>${a.prediction?Number(a.prediction.predicted_cobb_change).toFixed(2)+'°':'—'}</td></tr>`).join('');}catch(error){setStatus('qaStatus','后台读取失败：'+error.message,true);}}
+    async function loadAdmin(){try{
+      const [{data:users,error:usersError},{data:assessments,error:assessmentsError},{count:assessmentTotal,error:countError}]=await Promise.all([db.from('profiles').select('*').order('created_at',{ascending:false}),db.from('assessments').select('*').order('created_at',{ascending:false}).limit(100),db.from('assessments').select('*',{count:'exact',head:true})]);if(usersError)throw usersError;if(assessmentsError)throw assessmentsError;if(countError)throw countError;
+      const counts={},last={};assessments.forEach(a=>{counts[a.user_id]=(counts[a.user_id]||0)+1;if(!last[a.user_id])last[a.user_id]=a.created_at;});const byId=Object.fromEntries(users.map(u=>[u.id,u]));const weekAgo=Date.now()-7*86400000;
+      $('registeredUsers').textContent=users.length;$('assessmentCount').textContent=assessmentTotal??0;$('activeUsers').textContent=users.filter(u=>new Date(u.last_active_at).getTime()>=weekAgo).length;
+      $('usersBody').innerHTML=users.map(u=>`<tr><td>${escapeHtml(u.display_name)}</td><td>${escapeHtml(u.email)}</td><td>${escapeHtml(u.role)}</td><td>${escapeHtml(new Date(u.created_at).toLocaleString())}</td><td>${counts[u.id]||0}</td><td>${last[u.id]?escapeHtml(new Date(last[u.id]).toLocaleString()):'—'}</td></tr>`).join('');
+      $('assessmentsBody').innerHTML=assessments.map(a=>{const u=byId[a.user_id]||{};return `<tr><td>${escapeHtml(new Date(a.created_at).toLocaleString())}</td><td>${escapeHtml(u.display_name||'—')}<br><span class="muted">${escapeHtml(u.email||'—')}</span></td><td class="patient-cell">年龄 ${escapeHtml(a.patient.age)}；${a.patient.sex==='female'?'女':'男'}；干预前 ${escapeHtml(a.patient.pre_cobb)}°；周期 ${escapeHtml(a.patient.intervention_months)} 月；方案 ${a.patient.treatment_group==='brace_training'?'支具+训练':'纯支具'}</td><td class="patient-cell">${escapeHtml(a.question)}</td><td>${a.prediction?Number(a.prediction.predicted_cobb_change).toFixed(2)+'°':'—'}</td></tr>`;}).join('');
+    }catch(error){setStatus('qaStatus','后台读取失败：'+error.message,true);}}
     $('refreshAdmin').addEventListener('click',loadAdmin);
 
-    async function bootstrap(){if(!token){showLoggedOut();return;}try{const data=await api('/api/me');await showLoggedIn(data.user);}catch(_error){showLoggedOut();}}
+    async function bootstrap(){const {data}=await db.auth.getSession();if(!data.session){showLoggedOut();return;}try{await showLoggedIn(await profileFor(data.session.user));}catch(error){showLoggedOut();setStatus('authStatus','账号数据读取失败：'+error.message,true);}}
     bootstrap();
   </script>
 </body>
