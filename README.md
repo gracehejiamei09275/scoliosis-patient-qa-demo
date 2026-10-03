@@ -54,14 +54,15 @@ python3 -m src.pipeline
 
 ## 账号、数据保存与管理员后台
 
-公开网页现支持邮箱注册与登录。登录后的每次问答都会保存到数据库，并与用户账号关联：
+公开网页通过 Supabase Auth 和 PostgreSQL 支持邮箱注册与登录。登录后的每次问答都会保存到数据库，并与用户账号关联：
 
 - 普通用户只能读取自己的历史记录。
 - 管理员可以查看注册人数、近 7 日活跃人数、用户列表和最近评估参数。
-- 密码使用 PBKDF2-SHA256 加盐哈希存储，服务端只保存会话令牌的 SHA-256 摘要。
-- Render 部署通过 `DATABASE_URL` 连接 PostgreSQL；本地开发未配置该变量时使用 SQLite。
+- 密码和会话由 Supabase Auth 管理，网页不保存用户密码。
+- 数据表启用了 Row Level Security：普通用户只能读取自己的记录，管理员访问还要求指定邮箱已经完成验证。
+- `supabase/schema.sql` 是数据库初始化和访问控制脚本，需要在项目的 SQL Editor 中执行一次。
 
-Render 的 `ADMIN_EMAILS` 环境变量用于指定管理员邮箱；多个邮箱用英文逗号分隔。当前管理员邮箱为 `gracehejiamei@gmail.com`，该邮箱注册或再次登录后会获得管理员权限。GitHub Pages 前端默认调用 `https://scoliosis-patient-qa-demo.onrender.com`，如 Render 服务域名不同，请修改 `docs/index.html` 中的 `api-base`。
+当前管理员邮箱为 `gracehejiamei@gmail.com`，该邮箱完成邮件验证并登录后会获得管理员权限。GitHub Pages 前端直接使用 Supabase 的公开项目 URL 和 publishable key；权限不依赖密钥保密，而由数据库 RLS 策略强制执行。
 
 ## 测试
 
