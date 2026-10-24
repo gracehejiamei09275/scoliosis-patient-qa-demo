@@ -52,8 +52,21 @@ python3 -m src.pipeline
 - `每周训练时间（小时）` 只在“支具+训练组”记录；建模中另建 `training_exposure_hours` 表示训练暴露强度，纯支具组置 0 仅用于工程特征，不代表真实记录了 0 小时训练。
 - 若本地缺少 `scipy/sklearn/statsmodels/matplotlib/seaborn`，项目仍可运行：统计检验、PSM、Ridge 回归和 PNG 图表都有轻量 fallback 实现。
 
+## 账号、数据保存与管理员后台
+
+公开网页通过 Supabase Auth 和 PostgreSQL 支持邮箱注册与登录。登录后的每次问答都会保存到数据库，并与用户账号关联：
+
+- 普通用户只能读取自己的历史记录。
+- 管理员可以查看注册人数、近 7 日活跃人数、用户列表和最近评估参数。
+- 密码和会话由 Supabase Auth 管理，网页不保存用户密码。
+- 数据表启用了 Row Level Security：普通用户只能读取自己的记录，管理员访问还要求指定邮箱已经完成验证。
+- `supabase/schema.sql` 是数据库初始化和访问控制脚本，需要在项目的 SQL Editor 中执行一次。
+
+当前管理员邮箱为 `gracehejiamei@gmail.com`，该邮箱完成邮件验证并登录后会获得管理员权限。GitHub Pages 前端直接使用 Supabase 的公开项目 URL 和 publishable key；权限不依赖密钥保密，而由数据库 RLS 策略强制执行。
+
 ## 测试
 
 ```bash
 python3 tests/test_pipeline.py
 ```
+

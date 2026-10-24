@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -12,6 +13,7 @@ import numpy as np
 import pandas as pd
 
 from .config import DEFAULT_DATA_FILE, DEFAULT_OUTPUT_DIR
+from .account_store import AccountStore
 from .model_service import artifact_path, build_patient_features, ensure_model_artifact
 from .patient_qa import run_patient_qa
 from .qa_router import QuestionType, route_question
@@ -51,6 +53,9 @@ def _json_bytes(payload: dict[str, Any], status: HTTPStatus = HTTPStatus.OK) -> 
 
 
 def build_index_html(default_llm: str = "mock") -> str:
+    static_page = Path(__file__).resolve().parents[1] / "docs" / "index.html"
+    if static_page.exists():
+        return static_page.read_text(encoding="utf-8")
     sample_json = json.dumps(SAMPLE_PATIENT, ensure_ascii=False)
     return f"""<!doctype html>
 <html lang="zh-CN">
@@ -588,15 +593,27 @@ class WebAppState:
         data_file: Path,
         output_dir: Path,
         default_llm: str,
+        account_store: AccountStore,
+        auth_required: bool,
     ) -> None:
         self.data_file = data_file
         self.output_dir = output_dir
         self.default_llm = default_llm
+        self.account_store = account_store
+        self.auth_required = auth_required
+        self.allowed_origins = {
+            value.strip()
+            for value in os.environ.get(
+                "ALLOWED_ORIGINS",
+                "https://gracehejiamei09275.github.io,http://localhost:8000,http://127.0.0.1:8000",
+            ).split(",")
+            if value.strip()
+        }
 
 
 def make_handler(state: WebAppState) -> type[BaseHTTPRequestHandler]:
     class PatientQAHandler(BaseHTTPRequestHandler):
-        server_version = "PatientQAWeb/1.0"
+        server_version = "PatientQAWeb/2.0"
 
         def log_message(self, format: str, *args: Any) -> None:
             return
@@ -606,12 +623,49 @@ def make_handler(state: WebAppState) -> type[BaseHTTPRequestHandler]:
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            origin = self.headers.get("Origin", "")
+            if origin in state.allowed_origins:
+                self.send_header("Access-Control-Allow-Origin", origin)
+                self.send_header("Vary", "Origin")
             self.end_headers()
             self.wfile.write(body)
 
         def _send_json(self, payload: dict[str, Any], status: HTTPStatus = HTTPStatus.OK) -> None:
             code, body = _json_bytes(payload, status)
             self._send(code, body, "application/json; charset=utf-8")
+
+        def _read_json(self) -> dict[str, Any]:
+            length = int(self.headers.get("Content-Length", "0"))
+            if length <= 0 or length > 131_072:
+                raise ValueError("请求内容为空或过大。")
+            raw = self.rfile.read(length).decode("utf-8")
+            payload = json.loads(raw)
+            if not isinstance(payload, dict):
+                raise ValueError("请求内容必须是 JSON 对象。")
+            return payload
+
+        def _raw_token(self) -> str | None:
+            authorization = self.headers.get("Authorization", "")
+            if authorization.startswith("Bearer "):
+                return authorization[7:].strip()
+            return None
+
+        def _current_user(self) -> dict[str, Any] | None:
+            return state.account_store.user_for_token(self._raw_token())
+
+        def _require_user(self) -> dict[str, Any] | None:
+            user = self._current_user()
+            if user is None:
+                self._send_json({"error": "请先登录账号。"}, HTTPStatus.UNAUTHORIZED)
+            return user
+
+        def _require_admin(self) -> dict[str, Any] | None:
+            user = self._require_user()
+            if user is not None and user["role"] != "admin":
+                self._send_json({"error": "仅管理员可以查看该页面。"}, HTTPStatus.FORBIDDEN)
+                return None
+            return user
 
         def do_GET(self) -> None:
             path = urlparse(self.path).path
@@ -624,17 +678,38 @@ def make_handler(state: WebAppState) -> type[BaseHTTPRequestHandler]:
                     {
                         "status": "ok",
                         "default_llm": state.default_llm,
-                        "output_dir": state.output_dir.name,
-                        "data_file": state.data_file.name,
+                        "auth_required": state.auth_required,
                         "model_artifact_exists": artifact_path(state.output_dir).exists(),
                     }
                 )
+                return
+            if path == "/api/me":
+                user = self._require_user()
+                if user is not None:
+                    self._send_json({"user": user})
+                return
+            if path == "/api/history":
+                user = self._require_user()
+                if user is not None:
+                    self._send_json({"items": state.account_store.history(user["id"])})
+                return
+            if path == "/api/admin/stats":
+                if self._require_admin() is not None:
+                    self._send_json(state.account_store.admin_stats())
+                return
+            if path == "/api/admin/users":
+                if self._require_admin() is not None:
+                    self._send_json({"items": state.account_store.admin_users()})
+                return
+            if path == "/api/admin/assessments":
+                if self._require_admin() is not None:
+                    self._send_json({"items": state.account_store.admin_assessments()})
                 return
             self._send_json({"error": "Not found."}, HTTPStatus.NOT_FOUND)
 
         def do_HEAD(self) -> None:
             path = urlparse(self.path).path
-            if path in {"/", "/api/health"}:
+            if path in {"/", "/api/health", "/api/me", "/api/history"}:
                 self.send_response(HTTPStatus.OK)
                 content_type = "text/html; charset=utf-8" if path == "/" else "application/json; charset=utf-8"
                 self.send_header("Content-Type", content_type)
@@ -646,18 +721,63 @@ def make_handler(state: WebAppState) -> type[BaseHTTPRequestHandler]:
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
 
+        def do_OPTIONS(self) -> None:
+            self.send_response(HTTPStatus.NO_CONTENT)
+            origin = self.headers.get("Origin", "")
+            if origin in state.allowed_origins:
+                self.send_header("Access-Control-Allow-Origin", origin)
+                self.send_header("Vary", "Origin")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type")
+            self.send_header("Access-Control-Max-Age", "600")
+            self.end_headers()
+
         def do_POST(self) -> None:
             path = urlparse(self.path).path
+            try:
+                request_payload = self._read_json()
+            except (ValueError, json.JSONDecodeError) as exc:
+                self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+                return
+
+            if path == "/api/register":
+                try:
+                    user, token = state.account_store.register(
+                        email=str(request_payload.get("email", "")),
+                        password=str(request_payload.get("password", "")),
+                        display_name=str(request_payload.get("display_name", "")),
+                        consent=request_payload.get("consent") is True,
+                    )
+                except ValueError as exc:
+                    self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+                    return
+                self._send_json({"user": user, "token": token}, HTTPStatus.CREATED)
+                return
+
+            if path == "/api/login":
+                try:
+                    user, token = state.account_store.login(
+                        email=str(request_payload.get("email", "")),
+                        password=str(request_payload.get("password", "")),
+                    )
+                except ValueError as exc:
+                    self._send_json({"error": str(exc)}, HTTPStatus.UNAUTHORIZED)
+                    return
+                self._send_json({"user": user, "token": token})
+                return
+
+            if path == "/api/logout":
+                state.account_store.logout(self._raw_token())
+                self._send_json({"ok": True})
+                return
+
             if path != "/api/qa":
                 self._send_json({"error": "Not found."}, HTTPStatus.NOT_FOUND)
                 return
 
-            try:
-                length = int(self.headers.get("Content-Length", "0"))
-                raw = self.rfile.read(length).decode("utf-8")
-                request_payload = json.loads(raw or "{}")
-            except (ValueError, json.JSONDecodeError) as exc:
-                self._send_json({"error": f"Invalid JSON request: {exc}"}, HTTPStatus.BAD_REQUEST)
+            user = self._current_user()
+            if state.auth_required and user is None:
+                self._send_json({"error": "请先注册或登录后再提交。"}, HTTPStatus.UNAUTHORIZED)
                 return
 
             question = str(request_payload.get("question", "")).strip()
@@ -704,6 +824,14 @@ def make_handler(state: WebAppState) -> type[BaseHTTPRequestHandler]:
                 "privacy_policy": result.get("privacy_policy"),
                 "qa_logged": bool(result.get("qa_log")),
             }
+            if user is not None and isinstance(patient, dict):
+                response["assessment_id"] = state.account_store.save_assessment(
+                    user_id=user["id"],
+                    question=question,
+                    patient=patient,
+                    answer=str(result.get("answer") or ""),
+                    prediction=result.get("prediction"),
+                )
             self._send_json(response)
 
     return PatientQAHandler
@@ -716,11 +844,23 @@ def build_server(
     data_file: Path | str = DEFAULT_DATA_FILE,
     output_dir: Path | str = DEFAULT_OUTPUT_DIR,
     default_llm: str = "mock",
+    database_url: str | None = None,
+    auth_required: bool | None = None,
 ) -> ThreadingHTTPServer:
+    resolved_output_dir = Path(output_dir)
     state = WebAppState(
         data_file=Path(data_file),
-        output_dir=Path(output_dir),
+        output_dir=resolved_output_dir,
         default_llm=default_llm,
+        account_store=AccountStore(
+            database_url if database_url is not None else os.environ.get("DATABASE_URL"),
+            sqlite_path=resolved_output_dir / "patient_accounts.sqlite3",
+        ),
+        auth_required=(
+            auth_required
+            if auth_required is not None
+            else os.environ.get("AUTH_REQUIRED", "0").lower() in {"1", "true", "yes"}
+        ),
     )
     ensure_model_artifact(data_file=state.data_file, output_dir=state.output_dir)
     handler = make_handler(state)
@@ -758,3 +898,4 @@ def main(argv: list[str] | None = None) -> None:
 
 if __name__ == "__main__":
     main()
+

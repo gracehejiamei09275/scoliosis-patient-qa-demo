@@ -9,3 +9,5 @@ statsmodels>=0.14
 scikit-learn>=1.5
 matplotlib>=3.9
 seaborn>=0.13
+psycopg[binary]>=3.2
+
