@@ -33,7 +33,7 @@
         <h2>登录账号</h2>
         <div class="mode-tabs"><button type="button" class="active" data-login-mode="email">邮箱登录</button><button type="button" data-login-mode="phone">手机号登录</button></div>
         <div id="loginEmailFields"><div class="field"><label for="loginEmail">邮箱</label><input id="loginEmail" type="email" autocomplete="email"></div><div class="field"><label for="loginPassword">密码</label><input id="loginPassword" type="password" autocomplete="current-password"></div></div>
-        <div id="loginPhoneFields" class="hidden"><div class="field"><label for="loginPhone">手机号（含国家区号，例如 +8613812345678）</label><input id="loginPhone" type="tel" autocomplete="tel" placeholder="+8613812345678"></div><div class="muted">点击后会向该手机号发送 6 位验证码。</div></div>
+        <div id="loginPhoneFields" class="hidden"><div class="field"><label for="loginPhone">手机号（含国家区号，例如 +8613812345678）</label><input id="loginPhone" type="tel" autocomplete="tel" placeholder="+8613812345678"></div><div class="field"><label for="loginPhonePassword">密码</label><input id="loginPhonePassword" type="password" autocomplete="current-password"></div><div class="muted">使用注册时设置的密码登录，不发送短信验证码。</div></div>
         <button id="loginSubmit" class="primary" type="submit">邮箱登录</button>
       </form>
       <form id="registerForm" class="hidden">
@@ -41,15 +41,9 @@
         <div class="mode-tabs"><button type="button" class="active" data-register-mode="email">邮箱注册</button><button type="button" data-register-mode="phone">手机号注册</button></div>
         <div class="field"><label for="registerName">姓名或昵称</label><input id="registerName" maxlength="80" autocomplete="name" required></div>
         <div id="registerEmailFields"><div class="field"><label for="registerEmail">邮箱</label><input id="registerEmail" type="email" autocomplete="email"></div><div class="field"><label for="registerPassword">密码（至少 10 个字符）</label><input id="registerPassword" type="password" minlength="10" autocomplete="new-password"></div></div>
-        <div id="registerPhoneFields" class="hidden"><div class="field"><label for="registerPhone">手机号（含国家区号，例如 +8613812345678）</label><input id="registerPhone" type="tel" autocomplete="tel" placeholder="+8613812345678"></div><div class="muted">注册时会发送短信验证码，无需设置密码。</div></div>
+        <div id="registerPhoneFields" class="hidden"><div class="field"><label for="registerPhone">手机号（含国家区号，例如 +8613812345678）</label><input id="registerPhone" type="tel" autocomplete="tel" placeholder="+8613812345678"></div><div class="field"><label for="registerPhonePassword">密码（至少 10 个字符）</label><input id="registerPhonePassword" type="password" minlength="10" autocomplete="new-password"></div><div class="notice"><strong>请注意：</strong>本方式不发送短信，也不会验证手机号是否属于本人。请确认号码正确并妥善保存密码。</div></div>
         <label class="checkbox"><input id="consent" type="checkbox" required><span>我同意保存账号信息、健康参数、问题与模型结果，并了解管理员可以查看这些数据。</span></label>
         <div class="actions"><button id="registerSubmit" class="primary" type="submit">邮箱注册</button></div>
-      </form>
-      <form id="otpForm" class="hidden">
-        <h2>输入短信验证码</h2>
-        <div id="otpHint" class="muted"></div>
-        <div class="field"><label for="otpCode">6 位验证码</label><input id="otpCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required></div>
-        <div class="actions"><button class="primary" type="submit">验证并登录</button><button id="cancelOtp" class="secondary" type="button">返回</button></div>
       </form>
       <div id="authStatus" class="status" aria-live="polite"></div>
     </section>
@@ -103,7 +97,6 @@
     let currentUser = null;
     let loginMode = 'email';
     let registerMode = 'email';
-    let pendingPhone = '';
 
     const MODEL={
       intercept:5.387128712871288,
@@ -116,11 +109,10 @@
 
     function escapeHtml(value){return String(value??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
     function setStatus(id,message,error=false){const el=$(id);el.textContent=message;el.className=error?'status error':'status';}
-    function selectAuthTab(name){$('otpForm').classList.add('hidden');document.querySelectorAll('[data-auth-tab]').forEach(b=>b.classList.toggle('active',b.dataset.authTab===name));$('loginForm').classList.toggle('hidden',name!=='login');$('registerForm').classList.toggle('hidden',name!=='register');setStatus('authStatus','');}
-    function setLoginMode(mode){loginMode=mode;document.querySelectorAll('[data-login-mode]').forEach(b=>b.classList.toggle('active',b.dataset.loginMode===mode));$('loginEmailFields').classList.toggle('hidden',mode!=='email');$('loginPhoneFields').classList.toggle('hidden',mode!=='phone');$('loginSubmit').textContent=mode==='email'?'邮箱登录':'发送短信验证码';}
-    function setRegisterMode(mode){registerMode=mode;document.querySelectorAll('[data-register-mode]').forEach(b=>b.classList.toggle('active',b.dataset.registerMode===mode));$('registerEmailFields').classList.toggle('hidden',mode!=='email');$('registerPhoneFields').classList.toggle('hidden',mode!=='phone');$('registerSubmit').textContent=mode==='email'?'邮箱注册':'发送短信验证码';}
+    function selectAuthTab(name){document.querySelectorAll('[data-auth-tab]').forEach(b=>b.classList.toggle('active',b.dataset.authTab===name));$('loginForm').classList.toggle('hidden',name!=='login');$('registerForm').classList.toggle('hidden',name!=='register');setStatus('authStatus','');}
+    function setLoginMode(mode){loginMode=mode;document.querySelectorAll('[data-login-mode]').forEach(b=>b.classList.toggle('active',b.dataset.loginMode===mode));$('loginEmailFields').classList.toggle('hidden',mode!=='email');$('loginPhoneFields').classList.toggle('hidden',mode!=='phone');$('loginSubmit').textContent=mode==='email'?'邮箱登录':'手机号登录';}
+    function setRegisterMode(mode){registerMode=mode;document.querySelectorAll('[data-register-mode]').forEach(b=>b.classList.toggle('active',b.dataset.registerMode===mode));$('registerEmailFields').classList.toggle('hidden',mode!=='email');$('registerPhoneFields').classList.toggle('hidden',mode!=='phone');$('registerSubmit').textContent=mode==='email'?'邮箱注册':'手机号注册';}
     function normalizedPhone(value){const phone=value.replace(/[\s()-]/g,'');if(!/^\+[1-9]\d{7,14}$/.test(phone))throw new Error('手机号必须包含国家区号，例如 +8613812345678。');return phone;}
-    function showOtp(phone){pendingPhone=phone;$('loginForm').classList.add('hidden');$('registerForm').classList.add('hidden');$('otpForm').classList.remove('hidden');$('otpHint').textContent=`验证码已发送至 ${phone}`;$('otpCode').value='';setStatus('authStatus','请查看短信并输入验证码。');}
     function showLoggedOut(){currentUser=null;$('authPanel').classList.remove('hidden');$('memberArea').classList.add('hidden');$('openAuth').classList.remove('hidden');$('logout').classList.add('hidden');$('userLabel').classList.add('hidden');$('adminPanel').classList.add('hidden');}
     async function showLoggedIn(user){currentUser=user;$('authPanel').classList.add('hidden');$('memberArea').classList.remove('hidden');$('openAuth').classList.add('hidden');$('logout').classList.remove('hidden');$('userLabel').textContent=user.display_name;$('userLabel').classList.remove('hidden');$('adminPanel').classList.toggle('hidden',user.role!=='admin');await loadHistory();if(user.role==='admin') await loadAdmin();}
 
@@ -130,13 +122,11 @@
       await db.from('profiles').update({last_active_at:new Date().toISOString()}).eq('id',authUser.id);
       return data;
     }
-    $('loginForm').addEventListener('submit',async event=>{event.preventDefault();setStatus('authStatus','正在登录…');try{if(loginMode==='email'){const {data,error}=await db.auth.signInWithPassword({email:$('loginEmail').value.trim(),password:$('loginPassword').value});if(error)throw error;await showLoggedIn(await profileFor(data.user));}else{const phone=normalizedPhone($('loginPhone').value);const {error}=await db.auth.signInWithOtp({phone,options:{shouldCreateUser:false}});if(error)throw error;showOtp(phone);}}catch(error){setStatus('authStatus',error.message,true);}});
-    $('registerForm').addEventListener('submit',async event=>{event.preventDefault();setStatus('authStatus','正在创建账号…');try{if(!$('consent').checked)throw new Error('请先同意数据保存说明。');const displayName=$('registerName').value.trim();if(!displayName)throw new Error('请输入姓名或昵称。');if(registerMode==='email'){const {data,error}=await db.auth.signUp({email:$('registerEmail').value.trim(),password:$('registerPassword').value,options:{emailRedirectTo:location.origin+location.pathname,data:{display_name:displayName,consent:true}}});if(error)throw error;if(!data.session){selectAuthTab('login');setStatus('authStatus','注册成功。请打开邮箱中的确认邮件，确认后再登录。');return;}await showLoggedIn(await profileFor(data.user));}else{const phone=normalizedPhone($('registerPhone').value);const {error}=await db.auth.signInWithOtp({phone,options:{shouldCreateUser:true,data:{display_name:displayName,consent:true}}});if(error)throw error;showOtp(phone);}}catch(error){setStatus('authStatus',error.message,true);}});
+    $('loginForm').addEventListener('submit',async event=>{event.preventDefault();setStatus('authStatus','正在登录…');try{const credentials=loginMode==='email'?{email:$('loginEmail').value.trim(),password:$('loginPassword').value}:{phone:normalizedPhone($('loginPhone').value),password:$('loginPhonePassword').value};const {data,error}=await db.auth.signInWithPassword(credentials);if(error)throw error;await showLoggedIn(await profileFor(data.user));}catch(error){setStatus('authStatus',error.message,true);}});
+    $('registerForm').addEventListener('submit',async event=>{event.preventDefault();setStatus('authStatus','正在创建账号…');try{if(!$('consent').checked)throw new Error('请先同意数据保存说明。');const displayName=$('registerName').value.trim();if(!displayName)throw new Error('请输入姓名或昵称。');if(registerMode==='email'){const {data,error}=await db.auth.signUp({email:$('registerEmail').value.trim(),password:$('registerPassword').value,options:{emailRedirectTo:location.origin+location.pathname,data:{display_name:displayName,consent:true}}});if(error)throw error;if(!data.session){selectAuthTab('login');setStatus('authStatus','注册成功。请打开邮箱中的确认邮件，确认后再登录。');return;}await showLoggedIn(await profileFor(data.user));}else{const phone=normalizedPhone($('registerPhone').value);const password=$('registerPhonePassword').value;if(password.length<10)throw new Error('密码至少需要 10 个字符。');const {data,error}=await db.auth.signUp({phone,password,options:{data:{display_name:displayName,consent:true}}});if(error)throw error;if(!data.session)throw new Error('账号已创建，但 Supabase 仍要求验证手机号。请联系管理员关闭手机确认后再试。');await showLoggedIn(await profileFor(data.user));}}catch(error){setStatus('authStatus',error.message,true);}});
     document.querySelectorAll('[data-auth-tab]').forEach(b=>b.addEventListener('click',()=>selectAuthTab(b.dataset.authTab)));
     document.querySelectorAll('[data-login-mode]').forEach(b=>b.addEventListener('click',()=>setLoginMode(b.dataset.loginMode)));
     document.querySelectorAll('[data-register-mode]').forEach(b=>b.addEventListener('click',()=>setRegisterMode(b.dataset.registerMode)));
-    $('otpForm').addEventListener('submit',async event=>{event.preventDefault();setStatus('authStatus','正在验证…');try{const {data,error}=await db.auth.verifyOtp({phone:pendingPhone,token:$('otpCode').value.trim(),type:'sms'});if(error)throw error;$('otpForm').classList.add('hidden');await showLoggedIn(await profileFor(data.user));}catch(error){setStatus('authStatus',error.message,true);}});
-    $('cancelOtp').addEventListener('click',()=>{$('otpForm').classList.add('hidden');selectAuthTab('login');});
     $('openAuth').addEventListener('click',()=>{$('authPanel').scrollIntoView({behavior:'smooth'});});
     $('logout').addEventListener('click',async()=>{await db.auth.signOut();showLoggedOut();});
 
